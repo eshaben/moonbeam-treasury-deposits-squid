@@ -43,4 +43,6 @@ processor.run(new TypeormDatabase(), async (ctx) => {
       }
     }
   }
+  
+  await ctx.store.insert(deposits);
 });
