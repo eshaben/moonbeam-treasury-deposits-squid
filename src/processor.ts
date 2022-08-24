@@ -33,10 +33,11 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         let blockDate = new Date(Number(block.header.timestamp)).toUTCString();
 
         if (blockDate.includes("Jun") || blockDate.includes("Jul")) {
+          ctx.log.info(`Found one treasury proposal of ${deposit.value} with ID ${item.event.id}`);
           deposits.push({
             id: item.event.id,
             balance: deposit.value,
-            timestamp: new Date(Number(block.header.timestamp)).toUTCString(),
+            timestamp: blockDate,
           })
         }
 
