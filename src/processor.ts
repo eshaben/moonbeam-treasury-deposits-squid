@@ -31,9 +31,6 @@ processor.run(new TypeormDatabase(), async (ctx) => {
         ).toUTCString();
 
         if (blockDate.includes("Jun") || blockDate.includes("Jul")) {
-          ctx.log.info(
-            `Found one treasury proposal of ${deposit.value} with ID ${item.event.id}`
-          );
           deposits.push(
             new TreasuryDeposit({
               id: item.event.id,
