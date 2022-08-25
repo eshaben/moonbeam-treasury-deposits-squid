@@ -1,10 +1,8 @@
-import {
-  SubstrateBatchProcessor,
-} from "@subsquid/substrate-processor";
+import { SubstrateBatchProcessor } from "@subsquid/substrate-processor";
 import { lookupArchive } from "@subsquid/archive-registry";
+import { TypeormDatabase } from "@subsquid/typeorm-store";
 import { TreasuryDeposit } from "./model";
 import { TreasuryDepositEvent } from "./types/events";
-import { TypeormDatabase } from "@subsquid/typeorm-store";
 
 const processor = new SubstrateBatchProcessor()
   .setBatchSize(500)
@@ -16,11 +14,9 @@ const processor = new SubstrateBatchProcessor()
 
 processor.run(new TypeormDatabase(), async (ctx) => {
   const deposits: TreasuryDeposit[] = [];
-
   for (const block of ctx.blocks) {
     for (const item of block.items) {
       if (item.name === "Treasury.Deposit") {
-
         const event = new TreasuryDepositEvent(ctx, item.event);
         let deposit: { value: bigint };
         if (event.isV900) {
@@ -30,20 +26,24 @@ processor.run(new TypeormDatabase(), async (ctx) => {
           deposit = event.asV1300;
         }
 
-        let blockDate = new Date(Number(block.header.timestamp)).toUTCString();
+        const blockDate = new Date(
+          Number(block.header.timestamp)
+        ).toUTCString();
 
         if (blockDate.includes("Jun") || blockDate.includes("Jul")) {
-          ctx.log.info(`Found one treasury proposal of ${deposit.value} with ID ${item.event.id}`);
-          deposits.push({
-            id: item.event.id,
-            balance: deposit.value,
-            timestamp: blockDate,
-          })
+          ctx.log.info(
+            `Found one treasury proposal of ${deposit.value} with ID ${item.event.id}`
+          );
+          deposits.push(
+            new TreasuryDeposit({
+              id: item.event.id,
+              balance: deposit.value,
+              timestamp: blockDate,
+            })
+          );
         }
-
       }
     }
   }
-  
   await ctx.store.insert(deposits);
 });
