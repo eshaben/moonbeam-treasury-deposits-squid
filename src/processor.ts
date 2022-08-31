@@ -1,44 +1,46 @@
-import {
-  EventHandlerContext,
-  SubstrateProcessor,
-} from "@subsquid/substrate-processor";
+import { SubstrateBatchProcessor } from "@subsquid/substrate-processor";
 import { lookupArchive } from "@subsquid/archive-registry";
+import { TypeormDatabase } from "@subsquid/typeorm-store";
 import { TreasuryDeposit } from "./model";
 import { TreasuryDepositEvent } from "./types/events";
 
-const processor = new SubstrateProcessor("moonbeam-treasury-deposits");
+const processor = new SubstrateBatchProcessor()
+  .setBatchSize(500)
+  .setDataSource({
+    archive: lookupArchive("moonbeam", { release: "FireSquid" }),
+  })
+  .setBlockRange({ from: 1144562, to: 1557182 })
+  .addEvent("Treasury.Deposit");
 
-processor.setBatchSize(500);
-processor.setDataSource({
-  archive: lookupArchive("moonbeam")[0].url,
-  chain: "wss://moonbeam.api.onfinality.io/public-ws",
-});
-processor.setBlockRange({from: 1144562, to: 1557182 })
+processor.run(new TypeormDatabase(), async (ctx) => {
+  const deposits: TreasuryDeposit[] = [];
+  for (const block of ctx.blocks) {
+    for (const item of block.items) {
+      if (item.name === "Treasury.Deposit") {
+        const event = new TreasuryDepositEvent(ctx, item.event);
+        let deposit: { value: bigint };
+        if (event.isV900) {
+          const value = event.asV900;
+          deposit = { value };
+        } else {
+          deposit = event.asV1300;
+        }
 
-processor.addEventHandler("treasury.Deposit", async (ctx: EventHandlerContext) => {
-  const event = getDepositEvent(ctx);
+        const blockDate = new Date(
+          Number(block.header.timestamp)
+        ).toUTCString();
 
-  const deposit = new TreasuryDeposit();
-  deposit.id = ctx.event.id;
-  deposit.balance = event.value;
-  deposit.timestamp = new Date(ctx.event.blockTimestamp).toUTCString();
-
-  if (deposit.timestamp.includes("Jun") || deposit.timestamp.includes("Jul")) {
-    await ctx.store.save(deposit);
+        if (blockDate.includes("Jun") || blockDate.includes("Jul")) {
+          deposits.push(
+            new TreasuryDeposit({
+              id: item.event.id,
+              balance: deposit.value,
+              timestamp: blockDate,
+            })
+          );
+        }
+      }
+    }
   }
-
+  await ctx.store.insert(deposits);
 });
-
-function getDepositEvent(ctx: EventHandlerContext) {
-  const event = new TreasuryDepositEvent(ctx);
-
-  if (event.isV900) {
-    const deposit = event.asV900;
-    return { value: deposit };
-  } else {
-    return event.asV1300
-  }
-}
-
-  return assetTransfers;
-}

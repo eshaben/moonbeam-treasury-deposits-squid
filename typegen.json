@@ -3,7 +3,7 @@
   "specVersions": "https://moonbeam.archive.subsquid.io/graphql",
   "typesBundle": "moonbeam",
   "events": [
-    "treasury.Deposit"
+    "Treasury.Deposit"
   ],
   "calls": []
 }
